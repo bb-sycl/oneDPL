@@ -63,7 +63,41 @@ pipeline {
     }
 
     stages {
+        stage('Check_User_in_Org') {
+            agent {
+                label "master"
+            }
+            steps {
+                script {
+                    try {
+//                        checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: 'master']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'llvm_ci']], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '892534cc-be1b-4775-aa9c-da91fa162549', url: 'https://gitlab.devtools.intel.com/icl-qa-tools/onedpl_ci.git']]]
+
+                        retry(2) {
+                            def check_user_return = sh(script: "python3 /localdisk2/sam/check_user_in_group.py -u  ${env.User}", returnStatus: true, label: "Check User in Group")
+                            echo "check_user_return value is $check_user_return"
+                            if (check_user_return == 0) {
+                                user_in_github_group = true
+                            }
+                            else {
+                                user_in_github_group = false
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+                    }
+                    catch (e) {
+                        fail_stage = fail_stage + "    " + "Check_User_in_Org"
+                        user_in_github_group = false
+                        echo "Exception occurred when check User:${env.User} in group. Will skip build this time"
+                        sh script: "exit -1", label: "Set Failure"
+                    }
+                }
+            }
+        }
+
         stage('Print Hello') {
+            when {
+                expression { user_in_github_group }
+            }
             parallel {
                 stage('RHEL'){
                     agent { label "Debug_RHEL" }
