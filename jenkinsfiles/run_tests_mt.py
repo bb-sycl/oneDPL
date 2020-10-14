@@ -9,7 +9,7 @@ from collections import deque, namedtuple
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
-oneDPL_ROOT = os.path.abspath('../oneDPL')
+oneDPL_ROOT = os.path.abspath('..')
 BUILD_DIR = 'build'
 TEST_TIMEOUT = 40
 
@@ -64,7 +64,7 @@ def worker(queue, results):
 def main():
     started = time.time()
     shutil.rmtree(BUILD_DIR, ignore_errors=True)
-    tests = glob.glob(os.path.join(oneDPL_ROOT, r'test\**\*.cpp'), recursive=True) [:10]
+    tests = glob.glob(os.path.join(oneDPL_ROOT, r'test\**\*.cpp'), recursive=True)
     tests = deque(tests)
     results = deque()
     worker_thread_count = 4
