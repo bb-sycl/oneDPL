@@ -91,7 +91,7 @@ def dump_results(results, path):
     suite.set('name', 'default')
     for item in results:
         test = ET.SubElement(suite, 'testcase')
-        test.set('name', item.test_name)
+        test.set('name', os.path.relpath(item.test_name, oneDPL_ROOT))
         out = ET.SubElement(test, 'system-out')
         out.text = item.output
         if item.failed_phase:
