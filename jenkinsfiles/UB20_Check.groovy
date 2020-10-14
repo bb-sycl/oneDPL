@@ -156,12 +156,15 @@ pipeline {
                         script {
                             try {
                                 retry(2) {
+                                    githubStatus.setPending(this, "Jenkins/UB20_Check")
                                     if (fileExists('./src')) {
                                         sh script: 'rm -rf src', label: "Remove Src Folder"
                                     }
 
-                                    githubStatus.setPending(this, "Jenkins/UB20_Check")
-                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
+                                    sh script: 'cp -rf /export/users/sys_bbsycl/src ./', label: "Copy src Folder"
+                                    sh script: 'cd ./src; git config --local --add remote.origin.fetch +refs/pull/*/head:refs/remotes/origin/pr/*', label: "Set Git Config"
+                                    sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
+//                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
                                 }
                             }
                             catch (e) {
