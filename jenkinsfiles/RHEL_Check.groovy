@@ -209,7 +209,6 @@ pipeline {
 
                                                 sh script: """
                                                     echo "Build and Run: ${x.path}"
-                                                    exit -1
                                                     make pstl-${case_name}
                                                 """, label: "${case_name} Test"
 
