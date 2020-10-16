@@ -162,7 +162,7 @@ pipeline {
                                     }
 
                                     sh script: 'cp -rf /export/users/sys_bbsycl/src ./', label: "Copy src Folder"
-                                    sh script: 'cd ./src; git config --local --add remote.origin.fetch +refs/pull/*/head:refs/remotes/origin/pr/*', label: "Set Git Config"
+                                    sh script: "cd ./src; git config --local --add remote.origin.fetch +refs/pull/${env.PR_number}/head:refs/remotes/origin/pr/${env.PR_number}", label: "Set Git Config"
                                     sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
 //                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
 
@@ -184,50 +184,61 @@ pipeline {
                     }
                 }
 
-                stage('Check_Build'){
-                    steps {
-                        timeout(time: 1, unit: 'HOURS'){
-                            script {
-                                try {
-                                    if (fileExists('./src/test/output')) {
-                                        sh script: 'cd ./src/test; rm -rf output', label: "Remove output Folder"
-                                    }
-                                    sh script: """
-                                            cd ./src/test
-
-                                            #source /opt/intel/oneapi/setvars.sh
-
-                                            mkdir output
-                                            cp /export/users/sys_bbsycl/Makefile ./
-                                            make pstl_build_all
-                                        """, label: "Check_Build Test Step"
-                                }
-                                catch(e) {
-                                    build_ok = false
-                                    fail_stage = fail_stage + "    " + "Check_Build"
-                                    sh script: "exit -1", label: "Set failure"
-                                }
-                            }
-                        }
-                    }
-                }
-
                 stage('Check_Run'){
                     steps {
                         timeout(time: 1, unit: 'HOURS'){
                             script {
+                                def results = []
                                 try {
-                                    sh script: """
-                                            cd ./src/test
-                                            cp /export/users/sys_bbsycl/Makefile ./
-                                            make pstl_run_all
-                                        """, label: "Check_Run Test Step"
+
+                                    dir("./src/test") {
+                                        if (fileExists('./output')) {
+                                            sh script: 'rm -rf ./output;', label: "Remove output Folder"
+                                        }
+                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
+                                        def tests = findFiles glob: 'pstl_testsuite/**/*pass.cpp'
+
+                                        def failCount = 0
+                                        def passCount = 0
+
+                                        for ( x in tests ) {
+                                            try {
+                                                phase = "Build&Run"
+                                                case_name = x.name.toString()
+                                                case_name = case_name.substring(0, case_name.indexOf(".cpp"))
+
+                                                sh script: """
+                                                    echo "Build and Run: ${x.path}"
+                                                    make pstl-${case_name}
+                                                """, label: "${case_name} Test"
+
+                                                passCount++
+                                                results.add([name: case_name, pass: true, phase: phase])
+                                            }
+                                            catch (e) {
+                                                failCount++
+                                                results.add([name: case_name, pass: false, phase: phase])
+                                            }
+                                        }
+                                        if (failCount > 0) {
+                                            sh "exit -1"
+                                        }
+                                    }
                                 }
                                 catch(e) {
                                     build_ok = false
                                     fail_stage = fail_stage + "    " + "Check_Run"
+                                    failed_cases = "Failed cases are: "
+                                    results.each { item ->
+                                        if (!item.pass) {
+                                            failed_cases = failed_cases + "\n" + "${item.name}"
+                                        }
+                                    }
                                     catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                        sh "exit -1"
+                                        sh script: """
+                                            echo "${failed_cases}"
+                                            exit -1
+                                        """, label: "Print Failed Cases"
                                     }
                                 }
                             }
@@ -287,12 +298,14 @@ pipeline {
     post {
         always {
             script {
-                if (build_ok) {
-                    currentBuild.result = "SUCCESS"
-                    githubStatus.setSuccess(this, "Jenkins/RHEL_Check")
-                } else {
-                    currentBuild.result = "FAILURE"
-                    githubStatus.setFailed(this, "Jenkins/RHEL_Check")
+                if (user_in_github_group) {
+                    if (build_ok) {
+                        currentBuild.result = "SUCCESS"
+                        githubStatus.setSuccess(this, "Jenkins/RHEL_Check")
+                    } else {
+                        currentBuild.result = "FAILURE"
+                        githubStatus.setFailed(this, "Jenkins/RHEL_Check")
+                    }
                 }
             }
         }
