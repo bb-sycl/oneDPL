@@ -235,10 +235,13 @@ pipeline {
                                             failed_cases = failed_cases + "\n" + "${item.name}"
                                         }
                                     }
-                                    sh script: """
-                                        echo "${failed_cases}"
-                                        exit -1
-                                    """, label: "Print Failed Cases"
+
+                                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                        sh script: """
+                                            echo "${failed_cases}"
+                                            exit -1
+                                        """, label: "Print Failed Cases"
+                                    }
                                 }
                             }
                         }
