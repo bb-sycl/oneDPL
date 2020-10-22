@@ -1,3 +1,4 @@
+import groovy.xml.MarkupBuilder
 // Manages communication with github for reporting important status
 // events. Relies on Github integration plugin https://github.com/jenkinsci/github-plugin
 class GithubStatus {
@@ -62,6 +63,10 @@ def githubStatus = new GithubStatus(
         Commit_id: params.Commit_id,
         BUILD_URL: env.RUN_DISPLAY_URL
 )
+
+def shell(String command, String label_string = "Bat Command") {
+    return bat(returnStdout: true, script: "sh -x -c \"${command}\"", label: label_string).trim()
+}
 
 
 build_ok = true
@@ -145,40 +150,90 @@ pipeline {
             }
         }
 
-        stage('RHEL_Check') {
+        stage('Win_Check') {
             when {
                 expression { user_in_github_group }
             }
-            agent { label "Debug_RHEL" }
+            agent { label "windows_test" }
             stages {
                 stage('Git-monorepo'){
                     steps {
                         script {
                             try {
                                 retry(2) {
-                                    githubStatus.setPending(this, "Jenkins/RHEL_Check")
-                                    if (fileExists('./src')) {
-                                        sh script: 'rm -rf src', label: "Remove Src Folder"
-                                    }
+                                    githubStatus.setPending(this, "Jenkins/Win_Check")
+                                    deleteDir()
+//                                    sh script: 'cp -rf /export/users/sys_bbsycl/src ./', label: "Copy src Folder"
+//                                    sh script: "cd ./src; git config --local --add remote.origin.fetch +refs/pull/${env.PR_number}/head:refs/remotes/origin/pr/${env.PR_number}", label: "Set Git Config"
+//                                    sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
+                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[refspec: "+refs/pull/${PR_number}/head:refs/remotes/origin/PR-${PR_number}", credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
 
-                                    sh script: 'cp -rf /export/users/sys_bbsycl/src ./', label: "Copy src Folder"
-                                    sh script: "cd ./src; git config --local --add remote.origin.fetch +refs/pull/${env.PR_number}/head:refs/remotes/origin/pr/${env.PR_number}", label: "Set Git Config"
-                                    sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
-//                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
-
-                                    if (fileExists('./oneAPI-samples')) {
-                                        sh script: 'rm -rf oneAPI-samples', label: "Remove oneAPI-samples Folder"
-
-                                    }
 //                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: 'master']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'oneAPI-samples'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/oneapi-src/oneAPI-samples.git']]]
-                                    sh script: 'cp -rf /export/users/sys_bbsycl/oneAPI-samples ./', label: "Copy oneAPI-samples Folder"
-                                    sh script: 'cd ./oneAPI-samples; git pull origin master', label: "Git Pull oneAPI-samples Folder"
+//                                    sh script: 'cp -rf /export/users/sys_bbsycl/oneAPI-samples ./', label: "Copy oneAPI-samples Folder"
+//                                    sh script: 'cd ./oneAPI-samples; git pull origin master', label: "Git Pull oneAPI-samples Folder"
                                 }
                             }
                             catch (e) {
                                 build_ok = false
                                 fail_stage = fail_stage + "    " + "Git-monorepo"
-                                sh script: "exit -1", label: "Set failure"
+//                                shell("exit -1", "Set failure")
+                                bat "exit -1"
+                            }
+                        }
+                    }
+                }
+
+                stage('Setting_Env') {
+                    steps {
+                        script {
+                            output = bat returnStdout: true, script: '@call "C:\\Program Files (x86)\\Intel\\oneAPI\\setvars.bat" > NUL && set'
+                            oneapi_env = output.split('\r\n') as List
+                        }
+                    }
+                }
+
+                stage('Check_Samples'){
+                    steps {
+                        timeout(time: 1, unit: 'HOURS'){
+                            script {
+                                try {
+                                    bat script: """
+                                            md oneAPI-samples
+                                            xcopy D:\\netbatch\\iusers\\sys_bbsycl\\oneAPI-samples .\\oneAPI-samples /E /Q /H
+                                            cd oneAPI-samples
+                                            git pull origin master
+                                            
+                                        """, label: "Prepare oneAPI-samples"
+
+                                    try {
+                                        withEnv(oneapi_env) {
+                                            bat script: """
+                                            cmd.exe /c
+                                            call "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2017\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2017.lnk"  
+                                            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64  
+                                            
+                                            d:
+                                            cd ${env.WORKSPACE}\\oneAPI-samples\\Libraries\\oneDPL\\gamma-correction
+                                            
+                                            MSBuild gamma-correction.sln /t:Rebuild /p:Configuration="Release"
+                                        """, label: "Gamma_return_value Test Step"
+                                        }
+                                    }
+                                    catch(e) {
+                                        build_ok = false
+                                        fail_stage = fail_stage + "    " + "Check_Samples_gamma-correction"
+                                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                            bat 'exit 1'
+                                        }
+                                    }
+                                }
+                                catch(e) {
+                                    build_ok = false
+                                    fail_stage = fail_stage + "    " + "Check_Samples"
+                                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                        bat 'exit 1'
+                                    }
+                                }
                             }
                         }
                     }
@@ -186,42 +241,41 @@ pipeline {
 
                 stage('Check_Test_Cases'){
                     steps {
-                        timeout(time: 1, unit: 'HOURS'){
+                        timeout(time: 5, unit: 'HOURS'){
                             script {
                                 def results = []
                                 try {
-
-                                    dir("./src/test") {
-                                        if (fileExists('./output')) {
-                                            sh script: 'rm -rf ./output;', label: "Remove output Folder"
-                                        }
-                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
-                                        def tests = findFiles glob: 'pstl_testsuite/**/*pass.cpp'
-
+                                    script {
+                                        //def tests = findFiles glob: 'ci/test/pstl_testsuite/pstl/**/*pass.cpp'
+                                        def tests = findFiles glob: 'src/test/pstl_testsuite/**/*pass.cpp' //uncomment this line to run all tests
+                                        echo tests.toString()
                                         def failCount = 0
                                         def passCount = 0
 
-                                        for ( x in tests ) {
-                                            try {
-                                                phase = "Build&Run"
-                                                case_name = x.name.toString()
-                                                case_name = case_name.substring(0, case_name.indexOf(".cpp"))
-
-                                                sh script: """
-                                                    echo "Build and Run: ${x.path}"
-                                                    make pstl-${case_name}
-                                                """, label: "${case_name} Test"
-
-                                                passCount++
-                                                results.add([name: case_name, pass: true, phase: phase])
-                                            }
-                                            catch (e) {
-                                                failCount++
-                                                results.add([name: case_name, pass: false, phase: phase])
+                                        withEnv(oneapi_env) {
+                                            for ( x in tests ) {
+                                                try {
+                                                    phase = "Build&Run"
+//                                                    bat "dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /Isrc/include /Isrc/test/pstl_testsuite $x"
+                                                    bat script: """
+                                                        dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /Isrc/include /Isrc/test/pstl_testsuite $x
+                                                        test.exe
+                                                    """, label: "Check $x"
+                                                    passCount++
+                                                    results.add([name: x, pass: true, phase: phase])
+                                                }
+                                                catch (e) {
+//                                                    echo 'FAIL'
+                                                    failCount++
+                                                    results.add([name: x, pass: false, phase: phase])
+                                                }
                                             }
                                         }
+                                        xml = write_results_xml(results)
+//                                        writeFile file: 'report.xml', text: xml
+                                        echo "Passed tests: $passCount, Failed tests: $failCount"
                                         if (failCount > 0) {
-                                            sh "exit -1"
+                                            bat 'exit 1'
                                         }
                                     }
                                 }
@@ -235,61 +289,13 @@ pipeline {
                                         }
                                     }
                                     catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                        sh script: """
-                                            echo "${failed_cases}"
-                                            exit -1
-                                        """, label: "Print Failed Cases"
+                                        bat 'exit 1'
                                     }
                                 }
                             }
                         }
                     }
                 }
-
-                stage('Check_Samples'){
-                    steps {
-                        timeout(time: 1, unit: 'HOURS'){
-                            script {
-                                try {
-                                    def gamma_return_value = sh(
-                                            script: """
-                                                    cd oneAPI-samples/Libraries/oneDPL/gamma-correction/
-                                                    mkdir build
-                                                    cd build/
-                                                    cmake ..
-                                                    make
-                                                    make run
-                                                    exit \$?""",
-                                            returnStatus: true, label: "gamma_return_value Step")
-                                    def stable_sort_return_value = sh(
-                                            script: """
-                                                    cd oneAPI-samples/Libraries/oneDPL/stable_sort_by_key/
-                                                    mkdir build
-                                                    cd build/
-                                                    cmake ..
-                                                    make
-                                                    make run
-                                                    exit \$?""",
-                                            returnStatus: true, label: "stable_sort_return_value Step")
-
-                                    if (gamma_return_value != 0 || stable_sort_return_value !=0) {
-                                        echo "gamma-correction or stable_sort_by_key check failed. Please check log to fix the issue."
-                                        sh script: "exit -1", label: "Set failure"
-                                    }
-
-                                }
-                                catch(e) {
-                                    build_ok = false
-                                    fail_stage = fail_stage + "    " + "Check_Samples"
-                                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                        sh "exit -1"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
             }
 
         }
@@ -301,14 +307,35 @@ pipeline {
                 if (user_in_github_group) {
                     if (build_ok) {
                         currentBuild.result = "SUCCESS"
-                        githubStatus.setSuccess(this, "Jenkins/RHEL_Check")
+                        githubStatus.setSuccess(this, "Jenkins/Win_Check")
                     } else {
                         currentBuild.result = "FAILURE"
-                        githubStatus.setFailed(this, "Jenkins/RHEL_Check")
+                        githubStatus.setFailed(this, "Jenkins/Win_Check")
+                    }
+                }
+//                junit 'report.xml'
+            }
+        }
+    }
+
+}
+@NonCPS
+def write_results_xml(results) {
+    def xmlWriter = new StringWriter()
+    def xml = new MarkupBuilder(xmlWriter)
+    xml.testsuites{
+        delegate.testsuite(name: 'tests') {
+            results.each { item ->
+                if (item.pass) {
+                    delegate.delegate.testcase(name: item.name, classname: item.name)
+                }
+                else {
+                    delegate.delegate.testcase(name: item.name, classname: item.name) {
+                        delegate.failure(message: 'Fail', item.phase)
                     }
                 }
             }
         }
     }
-
+    return xmlWriter.toString()
 }
