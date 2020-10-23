@@ -226,19 +226,19 @@ pipeline {
                                         withEnv(oneapi_env) {
                                             bat script: """
                                                 cmd.exe /c
-                                                call "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2017\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2017.lnk"  
+                                                call "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2017\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2017.lnk"                                    
                                                 call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64  
                                                 
                                                 d:
-                                                cd ${env.WORKSPACE}\\oneAPI-samples\\Libraries\\oneDPL\\gamma-correction
-                                                
-                                                MSBuild gamma-correction.sln /t:Rebuild /p:Configuration="Release"
-                                            """, label: "Gamma_return_value Test Step"
+                                                cd ${env.WORKSPACE}\\oneAPI-samples\\Libraries\\oneDPL\\stable_sort_by_key\\src
+                                                echo "Build&Test command: dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /Isrc/include main.cpp -o test.exe && test.exe"
+                                                dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /I${env.WORKSPACE}/src/include main.cpp -o test.exe && test.exe
+                                            """, label: "Stable_sort_by_key Test Step"
                                         }
                                     }
                                     catch(e) {
                                         build_ok = false
-                                        fail_stage = fail_stage + "    " + "Check_Samples_gamma-correction"
+                                        fail_stage = fail_stage + "    " + "Check_Samples_stable_sort_by_key"
                                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                                             bat 'exit 1'
                                         }
