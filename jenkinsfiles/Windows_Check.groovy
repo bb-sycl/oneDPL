@@ -163,14 +163,9 @@ pipeline {
                                 retry(2) {
                                     githubStatus.setPending(this, "Jenkins/Win_Check")
                                     deleteDir()
-//                                    sh script: 'cp -rf /export/users/sys_bbsycl/src ./', label: "Copy src Folder"
-//                                    sh script: "cd ./src; git config --local --add remote.origin.fetch +refs/pull/${env.PR_number}/head:refs/remotes/origin/pr/${env.PR_number}", label: "Set Git Config"
-//                                    sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
+
                                     checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[refspec: "+refs/pull/${PR_number}/head:refs/remotes/origin/PR-${PR_number}", credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
 
-//                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: 'master']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'oneAPI-samples'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/oneapi-src/oneAPI-samples.git']]]
-//                                    sh script: 'cp -rf /export/users/sys_bbsycl/oneAPI-samples ./', label: "Copy oneAPI-samples Folder"
-//                                    sh script: 'cd ./oneAPI-samples; git pull origin master', label: "Git Pull oneAPI-samples Folder"
                                 }
                             }
                             catch (e) {
@@ -208,15 +203,37 @@ pipeline {
                                     try {
                                         withEnv(oneapi_env) {
                                             bat script: """
-                                            cmd.exe /c
-                                            call "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2017\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2017.lnk"  
-                                            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64  
-                                            
-                                            d:
-                                            cd ${env.WORKSPACE}\\oneAPI-samples\\Libraries\\oneDPL\\gamma-correction
-                                            
-                                            MSBuild gamma-correction.sln /t:Rebuild /p:Configuration="Release"
-                                        """, label: "Gamma_return_value Test Step"
+                                                cmd.exe /c
+                                                call "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2017\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2017.lnk"  
+                                                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64  
+                                                
+                                                d:
+                                                cd ${env.WORKSPACE}\\oneAPI-samples\\Libraries\\oneDPL\\gamma-correction
+                                                
+                                                MSBuild gamma-correction.sln /t:Rebuild /p:Configuration="Release"
+                                            """, label: "Gamma_return_value Test Step"
+                                        }
+                                    }
+                                    catch(e) {
+                                        build_ok = false
+                                        fail_stage = fail_stage + "    " + "Check_Samples_gamma-correction"
+                                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                            bat 'exit 1'
+                                        }
+                                    }
+
+                                    try {
+                                        withEnv(oneapi_env) {
+                                            bat script: """
+                                                cmd.exe /c
+                                                call "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2017\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2017.lnk"  
+                                                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64  
+                                                
+                                                d:
+                                                cd ${env.WORKSPACE}\\oneAPI-samples\\Libraries\\oneDPL\\gamma-correction
+                                                
+                                                MSBuild gamma-correction.sln /t:Rebuild /p:Configuration="Release"
+                                            """, label: "Gamma_return_value Test Step"
                                         }
                                     }
                                     catch(e) {
@@ -256,7 +273,6 @@ pipeline {
                                             for ( x in tests ) {
                                                 try {
                                                     phase = "Build&Run"
-//                                                    bat "dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /Isrc/include /Isrc/test/pstl_testsuite $x"
                                                     bat script: """
                                                         dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /Isrc/include /Isrc/test/pstl_testsuite $x
                                                         test.exe
