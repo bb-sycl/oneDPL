@@ -176,7 +176,7 @@ pipeline {
                     }
                 }
 
-                stage('Check_Run'){
+                stage('Check_Test_Cases'){
                     steps {
                         timeout(time: 1, unit: 'HOURS'){
                             script {
