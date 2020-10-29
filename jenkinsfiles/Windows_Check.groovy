@@ -258,7 +258,7 @@ pipeline {
 
                 stage('Check_Test_Cases'){
                     steps {
-                        timeout(time: 5, unit: 'HOURS'){
+                        timeout(time: 2, unit: 'HOURS'){
                             script {
                                 def results = []
                                 try {
