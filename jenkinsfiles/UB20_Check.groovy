@@ -176,9 +176,26 @@ pipeline {
                     }
                 }
 
-                stage('Check_Test_Cases'){
+                stage('Merge_with_HEAD'){
                     steps {
-                        timeout(time: 1, unit: 'HOURS'){
+                        script {
+                            try {
+                                retry(2) {
+                                    sh script: "cd ./src; git merge --ff release_oneDPL", label: "Merge with latest release_oneDPL branch"
+                               }
+                            }
+                            catch (e) {
+                                build_ok = false
+                                fail_stage = fail_stage + "    " + "Merge_with_HEAD"
+                                sh script: "exit -1", label: "Set failure"
+                            }
+                        }
+                    }
+                }
+
+                stage('Check_pstl_testsuite'){
+                    steps {
+                        timeout(time: 2, unit: 'HOURS'){
                             script {
                                 def results = []
                                 try {
@@ -219,7 +236,7 @@ pipeline {
                                 }
                                 catch(e) {
                                     build_ok = false
-                                    fail_stage = fail_stage + "    " + "Check_Run"
+                                    fail_stage = fail_stage + "    " + "Check_pstl_testsuite"
                                     failed_cases = "Failed cases are: "
                                     results.each { item ->
                                         if (!item.pass) {
@@ -236,6 +253,65 @@ pipeline {
                     }
                 }
 
+                stage('Check_extensions_testsuite'){
+                    steps {
+                        timeout(time: 2, unit: 'HOURS'){
+                            script {
+                                def results = []
+                                try {
+
+                                    dir("./src/test") {
+                                        if (fileExists('./output')) {
+                                            sh script: 'rm -rf ./output;', label: "Remove output Folder"
+                                        }
+                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
+                                        def tests = findFiles glob: 'extensions_testsuite/**/*pass.cpp'
+
+                                        def failCount = 0
+                                        def passCount = 0
+
+                                        for ( x in tests ) {
+                                            try {
+                                                phase = "Build&Run"
+                                                case_name = x.name.toString()
+                                                case_name = case_name.substring(0, case_name.indexOf(".cpp"))
+
+                                                sh script: """
+                                                    echo "Build and Run: ${x.path}"
+                                                    make extensions-${case_name}
+                                                """, label: "${case_name} Test"
+
+                                                passCount++
+                                                results.add([name: case_name, pass: true, phase: phase])
+                                            }
+                                            catch (e) {
+                                                failCount++
+                                                results.add([name: case_name, pass: false, phase: phase])
+                                            }
+                                        }
+                                        if (failCount > 0) {
+                                            sh "exit -1"
+                                        }
+                                    }
+                                }
+                                catch(e) {
+                                    build_ok = false
+                                    fail_stage = fail_stage + "    " + "Check_extensions_testsuite"
+                                    failed_cases = "Failed cases are: "
+                                    results.each { item ->
+                                        if (!item.pass) {
+                                            failed_cases = failed_cases + "\n" + "${item.name}"
+                                        }
+                                    }
+                                    sh script: """
+                                        echo "${failed_cases}"
+                                        exit -1
+                                    """, label: "Print Failed Cases"
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
         }
