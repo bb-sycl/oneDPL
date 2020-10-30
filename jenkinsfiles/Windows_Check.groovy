@@ -163,7 +163,7 @@ pipeline {
                                     githubStatus.setPending(this, "Jenkins/Win_Check")
                                     deleteDir()
 
-                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[refspec: "+refs/pull/${PR_number}/head:refs/remotes/origin/PR-${PR_number}", credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
+                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[refspec: "+refs/pull/${PR_number}/head:refs/remotes/origin/PR-${PR_number}", credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/oneapi-src/oneDPL.git']]]
 
                                 }
                             }
