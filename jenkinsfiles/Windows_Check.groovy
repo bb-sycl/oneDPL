@@ -178,6 +178,25 @@ pipeline {
                     }
                 }
 
+                stage('Merge_with_HEAD') {
+                    steps {
+                        script {
+                            try {
+                                output = bat script: """
+                                            cd src
+                                            git merge --ff origin/release_oneDPL
+                                         """, label: "Merge with latest release_oneDPL branch"
+                            }
+                            catch (e) {
+                                build_ok = false
+                                fail_stage = fail_stage + "    " + "Merge_with_HEAD"
+                                bat "exit -1"
+                            }
+
+                        }
+                    }
+                }
+
                 stage('Setting_Env') {
                     steps {
                         script {
@@ -256,9 +275,9 @@ pipeline {
                     }
                 }
 
-                stage('Check_Test_Cases'){
+                stage('Check_pstl_testsuite'){
                     steps {
-                        timeout(time: 5, unit: 'HOURS'){
+                        timeout(time: 2, unit: 'HOURS'){
                             script {
                                 def results = []
                                 try {
@@ -298,6 +317,63 @@ pipeline {
                                 catch(e) {
                                     build_ok = false
                                     fail_stage = fail_stage + "    " + "Check_Run"
+                                    failed_cases = "Failed cases are: "
+                                    results.each { item ->
+                                        if (!item.pass) {
+                                            failed_cases = failed_cases + "\n" + "${item.name}"
+                                        }
+                                    }
+                                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                                        bat 'exit 1'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('Check_extensions_testsuite'){
+                    steps {
+                        timeout(time: 2, unit: 'HOURS'){
+                            script {
+                                def results = []
+                                try {
+                                    script {
+                                        //def tests = findFiles glob: 'ci/test/pstl_testsuite/pstl/**/*pass.cpp'
+                                        def tests = findFiles glob: 'src/test/extensions_testsuite/**/*pass.cpp' //uncomment this line to run all tests
+                                        echo tests.toString()
+                                        def failCount = 0
+                                        def passCount = 0
+
+                                        withEnv(oneapi_env) {
+                                            for ( x in tests ) {
+                                                try {
+                                                    phase = "Build&Run"
+                                                    bat script: """
+                                                        dpcpp /W0 /nologo /D _UNICODE /D UNICODE /Zi /WX- /EHsc /Fetest.exe /Isrc/include /Isrc/test/extensions_testsuite $x
+                                                        test.exe
+                                                    """, label: "Check $x"
+                                                    passCount++
+                                                    results.add([name: x, pass: true, phase: phase])
+                                                }
+                                                catch (e) {
+//                                                    echo 'FAIL'
+                                                    failCount++
+                                                    results.add([name: x, pass: false, phase: phase])
+                                                }
+                                            }
+                                        }
+                                        xml = write_results_xml(results)
+//                                        writeFile file: 'report.xml', text: xml
+                                        echo "Passed tests: $passCount, Failed tests: $failCount"
+                                        if (failCount > 0) {
+                                            bat 'exit 1'
+                                        }
+                                    }
+                                }
+                                catch(e) {
+                                    build_ok = false
+                                    fail_stage = fail_stage + "    " + "Check_extensions_testsuite"
                                     failed_cases = "Failed cases are: "
                                     results.each { item ->
                                         if (!item.pass) {
