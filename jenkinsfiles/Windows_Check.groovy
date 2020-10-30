@@ -178,6 +178,25 @@ pipeline {
                     }
                 }
 
+                stage('Merge_with_HEAD') {
+                    steps {
+                        script {
+                            try {
+                                output = bat script: """
+                                            cd src
+                                            git merge --ff origin/release_oneDPL
+                                         """, label: "Merge with latest release_oneDPL branch"
+                            }
+                            catch (e) {
+                                build_ok = false
+                                fail_stage = fail_stage + "    " + "Merge_with_HEAD"
+                                bat "exit -1"
+                            }
+
+                        }
+                    }
+                }
+
                 stage('Setting_Env') {
                     steps {
                         script {

@@ -184,6 +184,23 @@ pipeline {
                     }
                 }
 
+                stage('Merge_with_HEAD'){
+                    steps {
+                        script {
+                            try {
+                                retry(2) {
+                                    sh script: "cd ./src; git merge --ff release_oneDPL", label: "Merge with latest release_oneDPL branch"
+                                }
+                            }
+                            catch (e) {
+                                build_ok = false
+                                fail_stage = fail_stage + "    " + "Merge_with_HEAD"
+                                sh script: "exit -1", label: "Set failure"
+                            }
+                        }
+                    }
+                }
+
                 stage('Check_pstl_testsuite'){
                     steps {
                         timeout(time: 2, unit: 'HOURS'){
