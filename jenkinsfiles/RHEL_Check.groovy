@@ -212,7 +212,7 @@ pipeline {
                                         if (fileExists('./output')) {
                                             sh script: 'rm -rf ./output;', label: "Remove output Folder"
                                         }
-                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
+                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile_RHEL ./; mv Makefile_RHEL Makefile"
                                         def tests = findFiles glob: 'pstl_testsuite/**/*pass.cpp'
 
                                         def failCount = 0
@@ -274,7 +274,7 @@ pipeline {
                                         if (fileExists('./output')) {
                                             sh script: 'rm -rf ./output;', label: "Remove output Folder"
                                         }
-                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
+                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile_RHEL ./; mv Makefile_RHEL Makefile"
                                         def tests = findFiles glob: 'extensions_testsuite/**/*pass.cpp'
 
                                         def failCount = 0
