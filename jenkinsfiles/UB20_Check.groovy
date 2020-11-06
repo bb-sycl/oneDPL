@@ -85,8 +85,8 @@ pipeline {
     parameters {
         string(name: 'Commit_id', defaultValue: 'None', description: '',)
         string(name: 'PR_number', defaultValue: 'None', description: '',)
-        string(name: 'Repository', defaultValue: 'bb-sycl/oneDPL', description: '',)
-        string(name: 'User', defaultValue: 'bb-sycl', description: '',)
+        string(name: 'Repository', defaultValue: 'oneapi-src/oneDPL', description: '',)
+        string(name: 'User', defaultValue: 'None', description: '',)
     }
 
     triggers {
@@ -123,7 +123,7 @@ pipeline {
                     try {
                         retry(2) {
                             fill_task_name_description()
-                            def check_user_return = sh(script: "python3 /localdisk2/sam/check_user_in_group.py -u  ${env.User}", returnStatus: true, label: "Check User in Group")
+                            def check_user_return = sh(script: "python3 /localdisk2/oneDPL_CI/check_user_in_group.py -u  ${env.User}", returnStatus: true, label: "Check User in Group")
                             echo "check_user_return value is $check_user_return"
                             if (check_user_return == 0) {
                                 user_in_github_group = true
@@ -160,10 +160,9 @@ pipeline {
                                         sh script: 'rm -rf src', label: "Remove Src Folder"
                                     }
 
-                                    sh script: 'cp -rf /export/users/sys_bbsycl/oneDPL-src/src ./', label: "Copy src Folder"
+                                    sh script: 'cp -rf /export/users/oneDPL_CI/oneDPL-src/src ./', label: "Copy src Folder"
                                     sh script: "cd ./src; git config --local --add remote.origin.fetch +refs/pull/${env.PR_number}/head:refs/remotes/origin/pr/${env.PR_number}", label: "Set Git Config"
                                     sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
-//                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
                                 }
                             }
                             catch (e) {
@@ -186,7 +185,7 @@ pipeline {
                                         if (fileExists('./output')) {
                                             sh script: 'rm -rf ./output;', label: "Remove output Folder"
                                         }
-                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
+                                        sh "mkdir output; cp /export/users/oneDPL_CI/Makefile ./"
                                         def tests = findFiles glob: 'pstl_testsuite/**/*pass.cpp'
 
                                         def failCount = 0
@@ -246,7 +245,7 @@ pipeline {
                                         if (fileExists('./output')) {
                                             sh script: 'rm -rf ./output;', label: "Remove output Folder"
                                         }
-                                        sh "mkdir output; cp /export/users/sys_bbsycl/Makefile ./"
+                                        sh "mkdir output; cp /export/users/oneDPL_CI/Makefile ./"
                                         def tests = findFiles glob: 'extensions_testsuite/**/*pass.cpp'
 
                                         def failCount = 0
