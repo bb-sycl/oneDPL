@@ -161,7 +161,7 @@ pipeline {
                                         sh script: 'rm -rf src', label: "Remove Src Folder"
                                     }
 
-                                    sh script: 'cp -rf /export/users/sys_bbsycl/src ./', label: "Copy src Folder"
+                                    sh script: 'git clone https://github.com/bb-sycl/oneDPL.git --depth 1 src', label: "Download src Folder"
                                     sh script: "cd ./src; git config --local --add remote.origin.fetch +refs/pull/${env.PR_number}/head:refs/remotes/origin/pr/${env.PR_number}", label: "Set Git Config"
                                     sh script: "cd ./src; git pull origin; git checkout ${env.Commit_id}", label: "Checkout Commit"
 //                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '${Commit_id}']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'src'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/bb-sycl/oneDPL.git']]]
@@ -171,7 +171,7 @@ pipeline {
 
                                     }
 //                                    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: 'master']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'oneAPI-samples'], [$class: 'CloneOption', timeout: 200]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '9d434875-1c6b-4745-924b-52ed38305a9f', url: 'https://github.com/oneapi-src/oneAPI-samples.git']]]
-                                    sh script: 'cp -rf /export/users/sys_bbsycl/oneAPI-samples ./', label: "Copy oneAPI-samples Folder"
+                                    sh script: 'git clone https://github.com/oneapi-src/oneAPI-samples.git --depth 1', label: "Download oneAPI-samples Folder"
                                     sh script: 'cd ./oneAPI-samples; git pull origin master', label: "Git Pull oneAPI-samples Folder"
                                 }
                             }
