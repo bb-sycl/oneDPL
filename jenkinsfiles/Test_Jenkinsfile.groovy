@@ -5,7 +5,7 @@ def fill_task_name_description () {
         currentBuild.description = "PR number: ${env.PR_number} / Commit id: ${env.Commit_id}"
     }
 }
-
+ 
 build_ok = true
 fail_stage = ""
 tests_branch_for_cts_vec = "cts_vec"
